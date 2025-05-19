@@ -39,8 +39,7 @@ export const createPaymentIntent = async (req, res) => {
 
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body; // Ensure userId is received
-
+    const { customerId, priceId } = req.body;
     console.log('Received subscription data:', req.body);
 
     const userId = req.session.user ? req.session.user.id : null;
@@ -49,21 +48,35 @@ export const createSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
     }
 
-    // Create a subscription in Stripe
-    const subscription = await stripe.subscriptions.create({
+    // Retrieve the price details from Stripe to inspect trial config
+    const price = await stripe.prices.retrieve(priceId);
+    console.log('Stripe Price details:', JSON.stringify(price, null, 2));
+
+    // Optionally inspect whether a trial is already set on the price
+    const trialSetInPrice = price?.recurring?.trial_period_days;
+    console.log('Trial period set in price:', trialSetInPrice);
+
+    // Create the subscription, include trial_period_days only if it's NOT already set in the price
+    const subscriptionData = {
       customer: customerId,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
-      payment_behavior: 'default_incomplete',
-    });
+    };
+
+    // Only add trial if not set in Stripe Price
+    if (!trialSetInPrice) {
+      subscriptionData.trial_period_days = 14;
+    }
+
+    const subscription = await stripe.subscriptions.create(subscriptionData);
 
     if (!subscription || !subscription.id) {
       return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
     }
 
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert from UNIX timestamp
+    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
-    // Find user in database and update with subscription ID
+    // Update the user in the DB
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -74,8 +87,8 @@ export const createSubscription = async (req, res) => {
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    res.status(200).json({ 
-      message: 'Subscription created successfully.', 
+    res.status(200).json({
+      message: 'Subscription created successfully.',
       subscriptionId: subscription.id,
       subscriptionEndDate,
       subscription,
@@ -86,6 +99,7 @@ export const createSubscription = async (req, res) => {
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 // In your stripeController.js
