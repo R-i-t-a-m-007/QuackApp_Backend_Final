@@ -40,55 +40,44 @@ export const createPaymentIntent = async (req, res) => {
 // Create Subscription with 14-day Trial and Auto Charge
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId, paymentMethodId } = req.body;
+    const { customerId, priceId } = req.body; // no paymentMethodId now
     const userId = req.session.user?.id;
 
-    if (!customerId || !priceId || !paymentMethodId || !userId) {
+    if (!customerId || !priceId || !userId) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    // 1. Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
-
-    // 2. Set it as the default payment method
-    await stripe.customers.update(customerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    // 3. Create the subscription with a 14-day trial
+    // Create subscription with default_incomplete behavior and 14-day trial
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
       trial_period_days: 14,
-      default_payment_method: paymentMethodId,
+      payment_behavior: 'default_incomplete',
+      expand: ['latest_invoice.payment_intent'],
     });
 
-    // 4. Calculate the end date of the trial/subscription
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
-
-    // 5. Save subscription details to the User model
+    // Save subscription details to the User model
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.stripeSubscriptionId = subscription.id;
     user.subscribed = true;
-    user.subscriptionEndDate = subscriptionEndDate;
+    user.subscriptionEndDate = new Date(subscription.current_period_end * 1000);
     await user.save();
 
-    // 6. Send success response
+    // Return subscription and PaymentIntent client secret for frontend Payment Sheet
     res.status(200).json({
-      message: 'Subscription started with 14-day trial.',
+      message: 'Subscription created, pending payment.',
       subscriptionId: subscription.id,
-      subscriptionEndDate,
+      subscriptionEndDate: user.subscriptionEndDate,
       subscription,
     });
   } catch (error) {
     console.error('Create Subscription Error:', error.message);
-    res.status(500).json({ error: 'Failed to start subscription.' });
+    res.status(500).json({ error: 'Failed to create subscription.' });
   }
 };
+
 
 
 
