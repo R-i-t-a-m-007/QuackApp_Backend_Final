@@ -39,8 +39,7 @@ export const createPaymentIntent = async (req, res) => {
 
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body; // Ensure userId is received
-
+    const { customerId, priceId, paymentMethodId } = req.body;
     console.log('Received subscription data:', req.body);
 
     const userId = req.session.user ? req.session.user.id : null;
@@ -49,22 +48,28 @@ export const createSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
     }
 
-    // Create a subscription in Stripe
-    const subscription = await stripe.subscriptions.create({
+    const subscriptionData = {
       customer: customerId,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
       trial_period_days: 14,
-      payment_behavior: 'default_incomplete',
-    });
+    };
 
-    if (!subscription || !subscription.id) {
-      return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
+    if (paymentMethodId) {
+      // Attach and set payment method as default
+      await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+      await stripe.customers.update(customerId, {
+        invoice_settings: { default_payment_method: paymentMethodId },
+      });
+
+      subscriptionData.default_payment_method = paymentMethodId;
+      subscriptionData.payment_behavior = 'default_incomplete';
     }
 
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert from UNIX timestamp
+    const subscription = await stripe.subscriptions.create(subscriptionData);
 
-    // Find user in database and update with subscription ID
+    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -74,26 +79,22 @@ export const createSubscription = async (req, res) => {
     user.subscribed = true;
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
-    const clientSecret = subscription.latest_invoice?.payment_intent?.client_secret || null;
-    
-    console.log(subscription.latest_invoice.payment_intent);
-    
-    console.log(clientSecret);
-    
 
-    res.status(200).json({ 
-      message: 'Subscription created successfully.', 
+    const clientSecret = subscription.latest_invoice?.payment_intent?.client_secret || null;
+
+    res.status(200).json({
+      message: 'Subscription created successfully.',
       subscriptionId: subscription.id,
       subscriptionEndDate,
       clientSecret,
       subscription,
     });
-
   } catch (error) {
     console.error('Stripe Create Subscription Error:', error);
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 // In your stripeController.js
