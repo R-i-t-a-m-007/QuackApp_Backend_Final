@@ -77,7 +77,9 @@ export const createSubscription = async (req, res) => {
 
     // Check if the payment intent is available
     const paymentIntent = subscription.latest_invoice.payment_intent;
+
     if (paymentIntent) {
+      // If payment intent exists, return the client secret
       res.status(200).json({ 
         message: 'Subscription created successfully.', 
         subscriptionId: subscription.id,
@@ -86,6 +88,7 @@ export const createSubscription = async (req, res) => {
         subscription,
       });
     } else {
+      // If no payment intent, inform the user
       res.status(200).json({ 
         message: 'Subscription created successfully, but no immediate payment is required.', 
         subscriptionId: subscription.id,
@@ -99,6 +102,7 @@ export const createSubscription = async (req, res) => {
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 
