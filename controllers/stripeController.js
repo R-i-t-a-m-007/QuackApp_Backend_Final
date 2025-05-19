@@ -39,8 +39,7 @@ export const createPaymentIntent = async (req, res) => {
 
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body; // Ensure userId is received
-
+    const { customerId, priceId } = req.body;
     console.log('Received subscription data:', req.body);
 
     const userId = req.session.user ? req.session.user.id : null;
@@ -49,7 +48,6 @@ export const createSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
     }
 
-    // Create a subscription in Stripe
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
@@ -58,16 +56,17 @@ export const createSubscription = async (req, res) => {
       payment_behavior: 'default_incomplete',
     });
 
+    console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
+
     if (!subscription || !subscription.id) {
       return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
     }
 
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert from UNIX timestamp
+    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
-    // Find user in database and update with subscription ID
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User  not found.' });
+      return res.status(404).json({ error: 'User not found.' });
     }
 
     user.stripeSubscriptionId = subscription.id;
@@ -75,33 +74,42 @@ export const createSubscription = async (req, res) => {
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    // Check if the payment intent is available
-    const paymentIntent = subscription.latest_invoice.payment_intent;
-
-    if (paymentIntent) {
-      // If payment intent exists, return the client secret
-      res.status(200).json({ 
-        message: 'Subscription created successfully.', 
-        subscriptionId: subscription.id,
-        subscriptionEndDate,
-        clientSecret: paymentIntent.client_secret, // Include client secret if available
-        subscription,
-      });
+    if (subscription.latest_invoice) {
+      console.log('latest_invoice exists in subscription');
+      if (subscription.latest_invoice.payment_intent) {
+        console.log('payment_intent exists in latest_invoice');
+        console.log('payment_intent:', subscription.latest_invoice.payment_intent);
+        res.status(200).json({
+          message: 'Subscription created successfully.',
+          subscriptionId: subscription.id,
+          subscriptionEndDate,
+          clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+          subscription,
+        });
+      } else {
+        console.warn('payment_intent is null in latest_invoice');
+        res.status(200).json({
+          message: 'Subscription created successfully, but no immediate payment is required.',
+          subscriptionId: subscription.id,
+          subscriptionEndDate,
+          subscription,
+        });
+      }
     } else {
-      // If no payment intent, inform the user
-      res.status(200).json({ 
-        message: 'Subscription created successfully, but no immediate payment is required.', 
+      console.warn('latest_invoice is null in subscription');
+      res.status(200).json({
+        message: 'Subscription created successfully, but no invoice generated yet.',
         subscriptionId: subscription.id,
         subscriptionEndDate,
         subscription,
       });
     }
-
   } catch (error) {
     console.error('Stripe Create Subscription Error:', error);
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 
