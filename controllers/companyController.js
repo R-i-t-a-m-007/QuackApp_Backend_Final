@@ -8,7 +8,7 @@ import crypto from 'crypto';
 const generateCompCode = () => `${Math.floor(1000 + Math.random() * 9000)}`;
 
 // Function to send email using Nodemailer
-const sendEmail = async (email, compCode, password) => {
+const sendEmail = async (email, departmentOrLocation, compCode, password) => {
   const transporter = nodemailer.createTransport({
     service: 'Gmail',
     auth: {
@@ -20,23 +20,49 @@ const sendEmail = async (email, compCode, password) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Welcome to Our Service!',
-    text: `Your company has been successfully registered. The credentials are:
+    subject: 'Your Company Account is Ready!',
+    html: `
+      <p>Dear <strong>${departmentOrLocation}</strong>,</p>
 
-Company Code: ${compCode}
-Password: ${password}
+      <p>Your account has been registered and is now ready to go!</p>
 
-Please keep these credentials safe.
+      <p>We are thrilled to have you as part of our community.</p>
 
-Best regards,
-The QuackApp Team`,
+      <p><strong>Your account credentials are:</strong></p>
+      <ul>
+        <li><strong>Username:</strong> ${departmentOrLocation}</li>
+        <li><strong>Password:</strong> ${password}</li>
+        <li><strong>User Code:</strong> ${compCode}</li>
+      </ul>
+
+      <p><strong>The company code is incredibly important</strong> — this is the code that is given to your workers for them to use when registering their accounts. It connects their profiles to your company.</p>
+
+      <p>Please see the link below for instructions on how to get your app up and running and the steps for onboarding your staff:</p>
+
+      <p><a href="https://youtu.be/P0zX9bNR3H0" target="_blank">Watch the onboarding video on YouTube</a></p>
+
+      <p><img src="cid:quackqr" style="width: 200px; height: auto;" alt="QR code with bird logo"/></p>
+
+      <p>Please ensure to keep this information secure.</p>
+
+      <p>Feel free to reach out to our support team should you need assistance.</p>
+
+      <p>Warm regards,<br/>The Quack App Team</p>
+    `,
+    attachments: [
+      {
+        filename: 'comp_qr.jpg',
+        path: path.join(__dirname, '../assets/comp_qr.jpg'), // Adjust path as needed
+        cid: 'quackqr', // Matches <img src="cid:quackqr" />
+      },
+    ],
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully');
+    console.log('✅ Company registration email sent to:', email);
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('❌ Error sending company registration email:', error);
   }
 };
 
@@ -157,7 +183,7 @@ export const addCompany = async (req, res) => {
     await newCompany.save();
 
     // Send email with registration info (plain text password for user reference)
-    await sendEmail(email, compCode, password);
+    await sendEmail(email, name, compCode, password);
 
     res.status(201).json({ message: 'Company added successfully!', company: newCompany });
   } catch (error) {

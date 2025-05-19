@@ -54,6 +54,7 @@ export const createSubscription = async (req, res) => {
       customer: customerId,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
+      trial_period_days: 14,
       payment_behavior: 'default_incomplete',
     });
 
@@ -73,11 +74,13 @@ export const createSubscription = async (req, res) => {
     user.subscribed = true;
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
+    const clientSecret = subscription.latest_invoice?.payment_intent?.client_secret || null;
 
     res.status(200).json({ 
       message: 'Subscription created successfully.', 
       subscriptionId: subscription.id,
       subscriptionEndDate,
+      clientSecret,
       subscription,
     });
 
