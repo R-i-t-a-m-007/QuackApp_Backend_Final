@@ -37,51 +37,56 @@ export const createPaymentIntent = async (req, res) => {
 };
 
 
-// Create Subscription with 14-day Trial and Auto Charge
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body; // no paymentMethodId now
-    const userId = req.session.user?.id;
+    const { customerId, priceId } = req.body; // Ensure userId is received
+
+    console.log('Received subscription data:', req.body);
+
+    const userId = req.session.user ? req.session.user.id : null;
 
     if (!customerId || !priceId || !userId) {
-      return res.status(400).json({ error: 'Missing required fields.' });
+      return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
     }
 
-    // Create subscription with default_incomplete behavior and 14-day trial
+    // Create a subscription in Stripe
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
+      expand: ['latest_invoice.payment_intent'],
       trial_period_days: 14,
       payment_behavior: 'default_incomplete',
-      expand: ['latest_invoice.payment_intent'],
     });
 
-    // Save subscription details to the User model
+    if (!subscription || !subscription.id) {
+      return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
+    }
+
+    const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert from UNIX timestamp
+
+    // Find user in database and update with subscription ID
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
 
     user.stripeSubscriptionId = subscription.id;
     user.subscribed = true;
-    user.subscriptionEndDate = new Date(subscription.current_period_end * 1000);
+    user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    // Return subscription and PaymentIntent client secret for frontend Payment Sheet
-    res.status(200).json({
-      message: 'Subscription created, pending payment.',
+    res.status(200).json({ 
+      message: 'Subscription created successfully.', 
       subscriptionId: subscription.id,
-      subscriptionEndDate: user.subscriptionEndDate,
+      subscriptionEndDate,
       subscription,
     });
+
   } catch (error) {
-    console.error('Create Subscription Error:', error.message);
-    res.status(500).json({ error: 'Failed to create subscription.' });
+    console.error('Stripe Create Subscription Error:', error);
+    res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
-
-
-
-
-
 
 
 // In your stripeController.js
@@ -96,7 +101,7 @@ export const attachPaymentMethod = async (req, res) => {
 
   try {
     // Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId, confirm: true, });
 
     // Set the payment method as the default for the customer
     await stripe.customers.update(customerId, {
