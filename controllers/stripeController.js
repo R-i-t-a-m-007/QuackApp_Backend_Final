@@ -1,4 +1,3 @@
-// stripeController.js
 import stripeLib from 'stripe';
 import dotenv from 'dotenv';
 import User from '../models/User.js';
@@ -8,63 +7,72 @@ dotenv.config();
 
 const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
 
-export const createPaymentIntent = async (req, res) => {
+export const createSetupIntent = async (req, res) => {
   try {
-    const { priceId, customerId } = req.body; // ✅ Ensure customerId is received
+    const { customerId } = req.body;
 
-    if (!priceId || !customerId) {
-      return res.status(400).json({ error: 'Price ID and Customer ID are required.' });
+    if (!customerId) {
+      return res.status(400).json({ error: 'Customer ID is required.' });
     }
 
-    // Fetch the price details from Stripe using the price ID
-    const price = await stripe.prices.retrieve(priceId);
-    if (!price || !price.unit_amount) {
-      return res.status(400).json({ error: 'Invalid price ID.' });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: price.unit_amount,
-      currency: price.currency,
-      customer: customerId, // 
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
       payment_method_types: ['card'],
     });
 
-    res.status(200).json({ clientSecret: paymentIntent.client_secret });
+    res.status(200).json({
+      clientSecret: setupIntent.client_secret,
+      paymentMethodId: setupIntent.payment_method,
+    });
   } catch (error) {
-    console.error('Stripe Payment Intent Error:', error.message);
-    res.status(500).json({ error: 'Failed to create payment intent.' });
+    console.error('Create SetupIntent Error:', error);
+    res.status(500).json({ error: 'Failed to create SetupIntent.' });
   }
 };
 
-
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body; // Ensure userId is received
-
-    console.log('Received subscription data:', req.body);
-
+    const { customerId, priceId, paymentMethodId } = req.body;
     const userId = req.session.user ? req.session.user.id : null;
 
-    if (!customerId || !priceId || !userId) {
-      return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
+    console.log('Received subscription data:', { customerId, priceId, paymentMethodId, userId });
+
+    if (!customerId || !priceId || !userId || !paymentMethodId) {
+      return res.status(400).json({ error: 'Customer ID, Price ID, User ID, and Payment Method ID are required.' });
     }
+
+    // Attach payment method to customer and set as default
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+    await stripe.customers.update(customerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
 
     // Create a subscription in Stripe
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
-      expand: ['latest_invoice.payment_intent'],
       trial_period_days: 14,
       payment_behavior: 'default_incomplete',
+      payment_settings: {
+        payment_method_types: ['card'],
+        save_default_payment_method: 'on_subscription',
+      },
     });
 
     if (!subscription || !subscription.id) {
       return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
     }
 
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000); // Convert from UNIX timestamp
+    console.log('Stripe subscription created:', {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+    });
 
-    // Find user in database and update with subscription ID
+    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
+
+    // Update user in database
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -75,21 +83,18 @@ export const createSubscription = async (req, res) => {
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    res.status(200).json({ 
-      message: 'Subscription created successfully.', 
+    res.status(200).json({
+      message: 'Subscription created successfully.',
       subscriptionId: subscription.id,
       subscriptionEndDate,
       subscription,
     });
-
   } catch (error) {
     console.error('Stripe Create Subscription Error:', error);
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
 
-
-// In your stripeController.js
 export const attachPaymentMethod = async (req, res) => {
   const { customerId, paymentMethodId } = req.body;
   console.log('Received data:', req.body);
@@ -100,10 +105,7 @@ export const attachPaymentMethod = async (req, res) => {
   }
 
   try {
-    // Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId, confirm: true, });
-
-    // Set the payment method as the default for the customer
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     await stripe.customers.update(customerId, {
       invoice_settings: {
         default_payment_method: paymentMethodId,
@@ -126,13 +128,11 @@ export const cancelSubscription = async (req, res) => {
       return res.status(400).json({ message: 'User subscription not found' });
     }
 
-    // Cancel the subscription in Stripe
     const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
-      cancel_at_period_end: true, // Cancels at the end of the billing cycle
+      cancel_at_period_end: true,
     });
     const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
-    // Optionally update the user record
     user.subscribed = false;
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
@@ -145,5 +145,38 @@ export const cancelSubscription = async (req, res) => {
   } catch (error) {
     console.error('Cancel Subscription Error:', error);
     res.status(500).json({ message: 'Error canceling subscription' });
+  }
+};
+
+export const handleWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  try {
+    const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+
+    if (event.type === 'invoice.paid') {
+      const subscriptionId = event.data.object.subscription;
+      const user = await User.findOne({ stripeSubscriptionId: subscriptionId });
+      if (user) {
+        user.subscribed = true;
+        user.subscriptionEndDate = new Date(event.data.object.period_end * 1000);
+        await user.save();
+        console.log(`Subscription ${subscriptionId} paid for user ${user._id}`);
+      }
+    } else if (event.type === 'invoice.payment_failed') {
+      const subscriptionId = event.data.object.subscription;
+      const user = await User.findOne({ stripeSubscriptionId: subscriptionId });
+      if (user) {
+        user.subscribed = false;
+        await user.save();
+        console.log(`Payment failed for subscription ${subscriptionId} for user ${user._id}`);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Webhook Error:', error);
+    res.status(400).json({ error: 'Webhook error' });
   }
 };
