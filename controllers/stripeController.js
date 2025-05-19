@@ -66,7 +66,7 @@ export const createSubscription = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+      return res.status(404).json({ error: 'User  not found.' });
     }
 
     user.stripeSubscriptionId = subscription.id;
@@ -89,7 +89,7 @@ export const createSubscription = async (req, res) => {
       } else {
         console.warn('payment_intent is null in latest_invoice');
         res.status(200).json({
-          message: 'Subscription created successfully, but no immediate payment is required.',
+          message: 'Subscription created successfully, but no immediate payment is required. You are currently in a trial period.',
           subscriptionId: subscription.id,
           subscriptionEndDate,
           subscription,
@@ -109,8 +109,6 @@ export const createSubscription = async (req, res) => {
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
-
-
 
 
 
