@@ -78,7 +78,6 @@ export const createSubscription = async (req, res) => {
       console.log('latest_invoice exists in subscription');
       if (subscription.latest_invoice.payment_intent) {
         console.log('payment_intent exists in latest_invoice');
-        console.log('payment_intent:', subscription.latest_invoice.payment_intent);
         res.status(200).json({
           message: 'Subscription created successfully.',
           subscriptionId: subscription.id,
@@ -109,6 +108,7 @@ export const createSubscription = async (req, res) => {
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 
