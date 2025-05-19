@@ -37,77 +37,60 @@ export const createPaymentIntent = async (req, res) => {
 };
 
 
+// Create Subscription with 14-day Trial and Auto Charge
 export const createSubscription = async (req, res) => {
   try {
-    const { customerId, priceId } = req.body;
-    console.log('Received subscription data:', req.body);
+    const { customerId, priceId, paymentMethodId } = req.body;
+    const userId = req.session.user?.id;
 
-    const userId = req.session.user ? req.session.user.id : null;
-
-    if (!customerId || !priceId || !userId) {
-      return res.status(400).json({ error: 'Customer ID, Price ID, and User ID are required.' });
+    if (!customerId || !priceId || !paymentMethodId || !userId) {
+      return res.status(400).json({ error: 'Missing required fields.' });
     }
 
+    // 1. Attach the payment method to the customer
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+
+    // 2. Set it as the default payment method
+    await stripe.customers.update(customerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
+    // 3. Create the subscription with a 14-day trial
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
-      expand: ['latest_invoice.payment_intent'],
       trial_period_days: 14,
-      payment_behavior: 'default_incomplete',
+      default_payment_method: paymentMethodId,
     });
 
-    console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
-
-    if (!subscription || !subscription.id) {
-      return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
-    }
-
+    // 4. Calculate the end date of the trial/subscription
     const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
+    // 5. Save subscription details to the User model
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User  not found.' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
     user.stripeSubscriptionId = subscription.id;
     user.subscribed = true;
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    if (subscription.latest_invoice) {
-      console.log('latest_invoice exists in subscription');
-      if (subscription.latest_invoice.payment_intent) {
-        console.log('payment_intent exists in latest_invoice');
-        res.status(200).json({
-          message: 'Subscription created successfully.',
-          subscriptionId: subscription.id,
-          subscriptionEndDate,
-          clientSecret: subscription.latest_invoice.payment_intent.client_secret,
-          subscription,
-        });
-      } else {
-        console.warn('payment_intent is null in latest_invoice');
-        res.status(200).json({
-          message: 'Subscription created successfully, but no immediate payment is required. You are currently in a trial period.',
-          subscriptionId: subscription.id,
-          subscriptionEndDate,
-          subscription,
-        });
-      }
-    } else {
-      console.warn('latest_invoice is null in subscription');
-      res.status(200).json({
-        message: 'Subscription created successfully, but no invoice generated yet.',
-        subscriptionId: subscription.id,
-        subscriptionEndDate,
-        subscription,
-      });
-    }
+    // 6. Send success response
+    res.status(200).json({
+      message: 'Subscription started with 14-day trial.',
+      subscriptionId: subscription.id,
+      subscriptionEndDate,
+      subscription,
+    });
   } catch (error) {
-    console.error('Stripe Create Subscription Error:', error);
-    res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
+    console.error('Create Subscription Error:', error.message);
+    res.status(500).json({ error: 'Failed to start subscription.' });
   }
 };
+
+
 
 
 
