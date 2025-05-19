@@ -107,7 +107,7 @@ export const attachPaymentMethod = async (req, res) => {
 
   try {
     // Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId, confirm: true, });
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
 
     // Set the payment method as the default for the customer
     await stripe.customers.update(customerId, {
