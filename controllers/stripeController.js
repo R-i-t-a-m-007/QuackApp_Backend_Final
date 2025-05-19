@@ -54,6 +54,7 @@ export const createSubscription = async (req, res) => {
       customer: customerId,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
+      trial_period_days: 14,
       payment_behavior: 'default_incomplete',
     });
 
@@ -66,7 +67,7 @@ export const createSubscription = async (req, res) => {
     // Find user in database and update with subscription ID
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+      return res.status(404).json({ error: 'User  not found.' });
     }
 
     user.stripeSubscriptionId = subscription.id;
@@ -74,18 +75,31 @@ export const createSubscription = async (req, res) => {
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
 
-    res.status(200).json({ 
-      message: 'Subscription created successfully.', 
-      subscriptionId: subscription.id,
-      subscriptionEndDate,
-      subscription,
-    });
+    // Check if the payment intent is available
+    const paymentIntent = subscription.latest_invoice.payment_intent;
+    if (paymentIntent) {
+      res.status(200).json({ 
+        message: 'Subscription created successfully.', 
+        subscriptionId: subscription.id,
+        subscriptionEndDate,
+        clientSecret: paymentIntent.client_secret, // Include client secret if available
+        subscription,
+      });
+    } else {
+      res.status(200).json({ 
+        message: 'Subscription created successfully, but no immediate payment is required.', 
+        subscriptionId: subscription.id,
+        subscriptionEndDate,
+        subscription,
+      });
+    }
 
   } catch (error) {
     console.error('Stripe Create Subscription Error:', error);
     res.status(500).json({ error: 'Failed to create subscription. Please try again later.' });
   }
 };
+
 
 
 // In your stripeController.js
