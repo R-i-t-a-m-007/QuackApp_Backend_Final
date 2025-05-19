@@ -75,6 +75,11 @@ export const createSubscription = async (req, res) => {
     user.subscriptionEndDate = subscriptionEndDate;
     await user.save();
     const clientSecret = subscription.latest_invoice?.payment_intent?.client_secret || null;
+    
+    console.log(subscription.latest_invoice.payment_intent);
+    
+    console.log(clientSecret);
+    
 
     res.status(200).json({ 
       message: 'Subscription created successfully.', 
