@@ -54,7 +54,7 @@ export const createSubscription = async (req, res) => {
       customer: customerId,
       items: [{ price: priceId }],
       expand: ['latest_invoice.payment_intent'],
-      trial_period_days: 14,
+      payment_behavior: 'default_incomplete',
     });
 
     if (!subscription || !subscription.id) {
