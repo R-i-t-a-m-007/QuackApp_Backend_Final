@@ -1,33 +1,14 @@
 import express from 'express';
 import {
-  createSetupIntent,
-  createSubscription,
-  attachPaymentMethod,
-  cancelSubscription,
-  handleWebhook,
   createPaymentLink,
+  handleWebhook,
+  cancelSubscription,
 } from '../controllers/stripeController.js';
 
 const router = express.Router();
 
-// POST: Create a SetupIntent to collect payment method
-router.post('/create-setup-intent', createSetupIntent);
-
-// POST: Create a subscription (standard flow)
-router.post('/create-subscription', createSubscription);
-
-// POST: Attach a payment method to a customer
-router.post('/attach-payment-method', attachPaymentMethod);
-
-// POST: Cancel a subscription
-router.post('/cancel-subscription', cancelSubscription);
-
-// POST: Handle Stripe webhook events
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
-
-// ✅ NEW: Create Stripe Payment Link
 router.post('/create-payment-link', createPaymentLink);
-
-
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+router.post('/cancel-subscription', cancelSubscription);
 
 export default router;
