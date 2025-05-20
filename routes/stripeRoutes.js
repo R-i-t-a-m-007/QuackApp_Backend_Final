@@ -23,5 +23,23 @@ router.post('/cancel-subscription', cancelSubscription);
 
 // POST: Handle Stripe webhook events
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+// backend route
+app.get('/stripe/redirect', (req, res) => {
+  const packageType = req.query.package || 'basic';
+  const redirectUrl = `quackapp://payment-success?package=${packageType}`;
+
+  res.send(`
+    <html>
+      <head>
+        <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
+      </head>
+      <body>
+        <p>Redirecting...</p>
+        <script>window.location = "${redirectUrl}"</script>
+      </body>
+    </html>
+  `);
+});
+
 
 export default router;
