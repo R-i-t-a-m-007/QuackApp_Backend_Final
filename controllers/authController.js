@@ -215,30 +215,43 @@ export const storeSelectedPackage = async (req, res) => {
 
   try {
     if (!req.session.user || !req.session.user.id) {
-      return res.status(401).json({ message: 'No user logged in' });
+      return res.status(401).json({ error: 'No user logged in' });
+    }
+
+    if (!['Basic', 'Pro'].includes(packageName)) {
+      return res.status(400).json({ error: 'Invalid package name' });
     }
 
     const user = await User.findById(req.session.user.id);
-
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     user.package = packageName;
-
-    // Set the price based on the package
-    if (packageName === 'Basic') {
-      user.price = 14.95;
-    } else if (packageName === 'Pro') {
-      user.price = 29.95;
-    }
-
     await user.save();
 
     res.status(200).json({ message: 'Package selection saved successfully.' });
   } catch (error) {
     console.error('Error saving package:', error);
-    res.status(500).json({ message: 'Failed to save package.' });
+    res.status(500).json({ error: 'Failed to save package.' });
+  }
+};
+
+export const getUser = async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.user.id) {
+      return res.status(401).json({ error: 'No user logged in' });
+    }
+
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json({ selectedPackage: user.package });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Failed to fetch user data' });
   }
 };
 

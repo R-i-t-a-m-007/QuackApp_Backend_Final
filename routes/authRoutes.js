@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser , loginUser , getLoggedInUser , logoutUser , requestOtp, storeSelectedPackage,getSessionData,updateUserPackage, uploadUserImage, getAllUsers, updateUserDetails, deleteUser, getUserById, getTotalPrice, requestPasswordReset, resetPassword, cancelSubscription, getCustomerId, generatePresignedUrl, updateUserImage } from '../controllers/authController.js';
+import { registerUser , loginUser , getLoggedInUser , logoutUser , requestOtp, storeSelectedPackage,getSessionData,updateUserPackage, uploadUserImage, getAllUsers, updateUserDetails, deleteUser, getUserById, getTotalPrice, requestPasswordReset, resetPassword, cancelSubscription, getCustomerId, generatePresignedUrl, updateUserImage, getUser } from '../controllers/authController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.get('/me', getLoggedInUser );
 router.post('/logout', logoutUser );
 router.post('/request-otp', requestOtp);
 router.post('/store-package', storeSelectedPackage); // Add this line
+router.get('/get-user', getUser);
 router.get('/session', getSessionData);
 router.post('/updatepackage', updateUserPackage); // New route for updating package
 router.post('/:userId/upload-image', uploadUserImage); // New route for uploading user image
@@ -24,6 +25,7 @@ router.delete('/cancel-subscription', cancelSubscription);
 router.get('/get-customer-id', getCustomerId);
 router.post('/generate-presigned-url', generatePresignedUrl);
 router.put('/:userId/image', updateUserImage);
+
 
 
 
