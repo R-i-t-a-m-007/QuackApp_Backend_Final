@@ -41,7 +41,6 @@ export const createSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Customer ID, Price ID, User ID, and Payment Method ID are required.' });
     }
 
-    // Attach payment method to customer and set as default
     await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     await stripe.customers.update(customerId, {
       invoice_settings: {
@@ -49,7 +48,6 @@ export const createSubscription = async (req, res) => {
       },
     });
 
-    // Create a subscription in Stripe
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceId }],
@@ -65,14 +63,8 @@ export const createSubscription = async (req, res) => {
       return res.status(500).json({ error: 'Failed to create subscription in Stripe.' });
     }
 
-    console.log('Stripe subscription created:', {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-    });
-
     const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
-    // Update user in database
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
@@ -97,10 +89,8 @@ export const createSubscription = async (req, res) => {
 
 export const attachPaymentMethod = async (req, res) => {
   const { customerId, paymentMethodId } = req.body;
-  console.log('Received data:', req.body);
 
   if (!customerId || !paymentMethodId) {
-    console.error('Error: Missing customerId or paymentMethodId');
     return res.status(400).json({ error: 'customerId and paymentMethodId are required.' });
   }
 
@@ -131,6 +121,7 @@ export const cancelSubscription = async (req, res) => {
     const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
       cancel_at_period_end: true,
     });
+
     const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
 
     user.subscribed = false;
@@ -178,5 +169,44 @@ export const handleWebhook = async (req, res) => {
   } catch (error) {
     console.error('Webhook Error:', error);
     res.status(400).json({ error: 'Webhook error' });
+  }
+};
+
+// ✅ NEW: Create Stripe Payment Link with redirect back to app
+export const createPaymentLink = async (req, res) => {
+  try {
+    const { packageName, priceId } = req.body;
+    const userId = req.session.user ? req.session.user.id : null;
+
+    if (!userId || !packageName || !priceId) {
+      return res.status(400).json({ error: 'User ID, package name, and price ID are required.' });
+    }
+
+    // Save selected package in user model
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    user.selectedPackage = packageName;
+    await user.save();
+
+    // Create Stripe Payment Link
+    const paymentLink = await stripe.paymentLinks.create({
+      line_items: [{ price: priceId, quantity: 1 }],
+      after_completion: {
+        type: 'redirect',
+        redirect: {
+          url: 'quackapp://payment-complete',
+        },
+      },
+      metadata: {
+        userId: user._id.toString(),
+        packageName,
+      },
+    });
+
+    res.status(200).json({ url: paymentLink.url });
+  } catch (error) {
+    console.error('Create Payment Link Error:', error);
+    res.status(500).json({ error: 'Failed to create payment link.' });
   }
 };
