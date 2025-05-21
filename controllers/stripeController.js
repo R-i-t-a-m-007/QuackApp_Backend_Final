@@ -124,27 +124,70 @@ export const cancelSubscription = async (req, res) => {
     const userId = req.session.user ? req.session.user.id : null;
     const user = await User.findById(userId);
 
-    if (!user || !user.stripeSubscriptionId) {
-      return res.status(400).json({ message: 'User subscription not found' });
+    if (!user) {
+      return res.status(400).json({ message: 'User not found' });
     }
 
-    const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
-      cancel_at_period_end: true,
-    });
-    const subscriptionEndDate = new Date(subscription.current_period_end * 1000);
-
+    // Update subscription status and log activity
     user.subscribed = false;
-    user.subscriptionEndDate = subscriptionEndDate;
+    user.package = null;
+    user.subscriptionEndDate = null;
+    user.activities.push({
+      timestamp: new Date(),
+      message: 'User requested subscription cancellation.',
+    });
     await user.save();
 
-    res.json({
-      message: 'Subscription will be canceled at the end of the billing cycle.',
-      subscription,
-      subscriptionEndDate,
+    // Email content to user
+    const userEmailContent = `
+      <h2>Subscription Cancellation Received</h2>
+      <p>Hi ${user.username},</p>
+      <p>We've received your request to cancel your subscription.</p>
+      <p>Your account has been updated, and your subscription is no longer active on our platform.</p>
+    `;
+
+    // Email content to admin
+    const adminEmailContent = `
+      <h2>📩 User Requested Subscription Cancellation</h2>
+      <p>The following user has requested to cancel their subscription:</p>
+      <h2>User Requested Subscription Cancellation</h2>
+      <p><strong>Username:</strong> ${user.username}</p>
+      <p><strong>Email:</strong> ${user.email}</p>
+      <p><strong>User ID:</strong> ${user._id}</p>
+      <p><strong>Package:</strong> ${user.package || 'N/A (cleared)'}</p>
+      <p><strong>User Code:</strong> ${user.userCode}</p>
+    `;
+
+    // Set up mail transport (Gmail example)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
+
+    // Send email to user
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Your Subscription Cancellation Request',
+      html: userEmailContent,
+    });
+
+    // Send email to admin
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.ADMIN_EMAIL,
+      subject: 'User Cancellation Request - Action Needed',
+      html: adminEmailContent,
+    });
+
+    res.json({ message: 'Cancellation processed. Emails sent and user updated.' });
+
   } catch (error) {
     console.error('Cancel Subscription Error:', error);
-    res.status(500).json({ message: 'Error canceling subscription' });
+    res.status(500).json({ message: 'Error processing cancellation request.' });
   }
 };
 
