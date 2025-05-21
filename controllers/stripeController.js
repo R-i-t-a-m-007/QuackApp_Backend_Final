@@ -1,6 +1,8 @@
 import stripeLib from 'stripe';
 import dotenv from 'dotenv';
 import User from '../models/User.js';
+import nodemailer from 'nodemailer';
+
 
 // Load environment variables
 dotenv.config();
