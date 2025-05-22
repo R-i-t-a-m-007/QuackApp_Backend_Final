@@ -132,7 +132,6 @@ export const cancelSubscription = async (req, res) => {
 
     // Update subscription status and log activity
     user.subscribed = false;
-    user.package = null;
     user.subscriptionEndDate = null;
     user.activities.push({
       timestamp: new Date(),
