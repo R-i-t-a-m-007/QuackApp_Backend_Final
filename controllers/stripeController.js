@@ -152,10 +152,8 @@ export const cancelSubscription = async (req, res) => {
     const adminEmailContent = `
       <h2>📩 User Requested Subscription Cancellation</h2>
       <p>The following user has requested to cancel their subscription:</p>
-      <h2>User Requested Subscription Cancellation</h2>
       <p><strong>Username:</strong> ${user.username}</p>
       <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>User ID:</strong> ${user._id}</p>
       <p><strong>Package:</strong> ${user.package || 'N/A (cleared)'}</p>
       <p><strong>User Code:</strong> ${user.userCode}</p>
     `;
