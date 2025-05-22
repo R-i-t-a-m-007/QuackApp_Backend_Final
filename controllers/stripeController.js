@@ -127,16 +127,16 @@ export const cancelSubscription = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(400).json({ message: 'User not found' });
+      return res.status(400).json({ message: 'User  not found' });
     }
 
     // Update subscription status and log activity
     user.subscribed = false;
     user.package = 'Expired';
-    user.subscriptionEndDate = null;
+    user.subscriptionEndDate = new Date(); // Set the subscription end date to the current date
     user.activities.push({
       timestamp: new Date(),
-      message: 'User requested subscription cancellation.',
+      message: 'User  requested subscription cancellation.',
     });
     await user.save();
 
@@ -181,7 +181,7 @@ export const cancelSubscription = async (req, res) => {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
-      subject: 'User Cancellation Request - Action Needed',
+      subject: 'User  Cancellation Request - Action Needed',
       html: adminEmailContent,
     });
 
@@ -192,6 +192,7 @@ export const cancelSubscription = async (req, res) => {
     res.status(500).json({ message: 'Error processing cancellation request.' });
   }
 };
+
 
 export const handleWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
