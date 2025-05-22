@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   package: { 
     type: String, 
-    enum: ['Basic', 'Pro'], 
+    enum: ['Basic', 'Pro', 'Expired'], 
     default: null,
   },
   price: { type: Number, default: 0 },
