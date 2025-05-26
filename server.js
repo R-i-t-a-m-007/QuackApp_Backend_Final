@@ -64,16 +64,20 @@ app.use("/healthcheck", (req,res)=>{
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (
-        !origin || 
-        allowedOrigins.includes(origin) || 
-        origin.startsWith('exp://') || 
-        origin.startsWith('app://')
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+      // Allow requests from Postman, curl, server-side
+      if (!origin) return callback(null, true);
+
+      // Check if origin is allowed
+      const allowed = allowedOrigins.some(allowedOrigin =>
+        origin === allowedOrigin || origin.startsWith(allowedOrigin)
+      );
+
+      if (allowed || origin.startsWith('exp://') || origin.startsWith('app://')) {
+        return callback(null, true);
       }
+
+      // Reject others
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,

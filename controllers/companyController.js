@@ -3,6 +3,11 @@ import nodemailer from 'nodemailer';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Helper to generate a random company code
 const generateCompCode = () => `${Math.floor(1000 + Math.random() * 9000)}`;
