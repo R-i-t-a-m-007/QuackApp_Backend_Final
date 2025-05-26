@@ -1148,7 +1148,7 @@ export const sendMessageToWorkers = async (req, res) => {
     await Promise.all(workers.map(async (worker) => {
       // Update each worker's messages
       await Worker.findByIdAndUpdate(worker._id, {
-        $push: { messages: { message, senderId: sender._id, timestamp: new Date() } },
+        $push: { messages: { message, senderId, timestamp: new Date() } },
       });
       console.log("Message to push:", {
         message: message,
