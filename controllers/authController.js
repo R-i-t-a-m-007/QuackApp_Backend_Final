@@ -10,12 +10,75 @@ import Job from '../models/Job.js';
 import CompanyList from '../models/CompanyList.js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'; // v3 SDK imports
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const region = process.env.AWS_REGION || 'us-east-1';
 const s3 = new S3Client({ region }); // Create the S3 client
 
 dotenv.config();
 const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
+
+export const sendUserRegistrationEmail = async (email, username, userCode, password) => {
+  const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Your Quack App Account is Ready!',
+    html: `
+      <p>Dear <strong>${username}</strong>,</p>
+
+      <p>Your account has been registered and is now ready to go!</p>
+
+      <p>We are thrilled to have you as part of our community.</p>
+
+      <p><strong>Your account credentials are:</strong></p>
+      <ul>
+        <li><strong>Username:</strong> ${username}</li>
+        <li><strong>Password:</strong> ${password}</li>
+        <li><strong>User Code:</strong> ${userCode}</li>
+      </ul>
+
+      <p><strong>The user code is important</strong> — this is used to connect with your assigned company and access job opportunities.</p>
+
+      <p>Please see the link below for instructions on how to get your app up and running:</p>
+
+      <p><a href="https://youtu.be/P0zX9bNR3H0" target="_blank">Watch the onboarding video on YouTube</a></p>
+
+      <p><img src="cid:quackqr" style="width: 200px; height: auto;" alt="QR code with bird logo"/></p>
+
+      <p>Please ensure to keep this information secure.</p>
+
+      <p>Feel free to reach out to our support team should you need assistance.</p>
+
+      <p>Warm regards,<br/>The Quack App Team</p>
+    `,
+    attachments: [
+      {
+        filename: 'comp_qr.jpg',
+        path: path.join(__dirname, '../assets/comp_qr.jpg'),
+        cid: 'quackqr',
+      },
+    ],
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('✅ User registration email sent to:', email);
+  } catch (error) {
+    console.error('❌ Error sending user registration email:', error);
+  }
+};
 
 // Function to send emails
 const sendEmail = async (to, subject, text) => {
@@ -110,7 +173,7 @@ Please ensure to keep this information secure. Feel free to reach out to our sup
 Warm regards,  
 The QuackApp Team`;
 
-    await sendEmail(email, subject, text);
+  await sendUserRegistrationEmail(email, username, userCode, password);
 
     return res.status(200).json({ message: 'Registration successful', user: req.session.user });
   } catch (error) {

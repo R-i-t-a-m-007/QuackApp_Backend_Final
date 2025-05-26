@@ -82,7 +82,7 @@ const sendApprovalEmail = async (email, name) => {
         For a detailed, easy-to-follow video explaining how the Quack App works, please click the link below or simply scan the QR code (don’t worry, it's only a few minutes long):
       </p>
 
-      <p><a href="https://www.youtube.com/watch?v=P0zX9bNR3H0" target="_blank">Watch the video on YouTube</a></p>
+      <p><a href="https://www.youtube.com/watch?v=lrEmu8jwbOs" target="_blank">Watch the video on YouTube</a></p>
 
       <p><img src="cid:quackqr" style="width: 200px; height: auto;" /></p>
 
@@ -90,8 +90,8 @@ const sendApprovalEmail = async (email, name) => {
     `,
     attachments: [
       {
-        filename: 'qr-code.jpg',
-        path: path.join(__dirname, '../assets/qr-code.jpg'), // Adjust path as needed
+        filename: 'workerQR.jpeg',
+        path: path.join(__dirname, '../assets/workerQR.jpeg'), // Adjust path as needed
         cid: 'quackqr', // Same as the cid in <img src="cid:quackqr" />
       },
     ],
