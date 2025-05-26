@@ -1122,6 +1122,7 @@ export const sendMessageToWorkers = async (req, res) => {
     const { message } = req.body;
 
     const sender = req.session.user || req.session.company;
+    const senderId = sender._id || sender.id;
     if (!sender) {
       return res.status(401).json({ message: 'Unauthorized. Please log in.' });
     }
@@ -1151,7 +1152,7 @@ export const sendMessageToWorkers = async (req, res) => {
       });
       console.log("Message to push:", {
         message: message,
-        senderId: sender._id,
+        senderId: senderId,
         timestamp: new Date()
       });
 
