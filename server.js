@@ -103,7 +103,7 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/jobs', jobRoutes); // Add job routes
 app.use('/api/admin', adminRoutes);
 
-cron.schedule('*/5 * * * *', () => {
+cron.schedule('0 0 * * 0', () => {
   (async () => {
     try {
       console.log('⏱️ Running user deletion check...');

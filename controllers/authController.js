@@ -97,7 +97,7 @@ const sendDeletionEmail = async (email, username) => {
       <p>Dear <strong>${username}</strong>,</p>
       <p>This is a notice that your account is scheduled to be permanently deleted in <strong>30 days</strong>.</p>
       <p>This includes your user profile, companies, workers, and job data.</p>
-      <p>You may continue using all features until the deletion date. If you wish to keep your account, please contact us immediately.</p>
+      <p>You may continue using all features until the deletion date.</p>
       <p>Best regards,<br/>The QuackApp Team</p>
     `,
   };
@@ -482,7 +482,7 @@ export const deleteUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Schedule deletion after 30 days
-    const deletionDate = new Date(Date.now() + 5 * 60 * 1000); // 30 days from now
+    const deletionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
     user.scheduledDeletion = deletionDate;
     await user.save();
 
