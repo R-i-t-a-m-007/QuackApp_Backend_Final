@@ -24,6 +24,7 @@ const UserSchema = new mongoose.Schema({
   stripeSubscriptionId: { type: String, default: null },
   subscriptionEndDate: { type: Date, default: null },
   expoPushToken: { type: String, default: null }, // Add this line
+  scheduledDeletion: { type: Date, default: null },
 });
 
 export default mongoose.model('User', UserSchema);

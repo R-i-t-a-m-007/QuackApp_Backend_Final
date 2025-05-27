@@ -17,6 +17,11 @@ import workerRoutes from './routes/workerRoutes.js'
 import stripeRoutes from './routes/stripeRoutes.js'
 import jobRoutes from './routes/jobRoutes.js'; // Import job routes
 import adminRoutes from './routes/adminRoutes.js';
+import cron from 'node-cron';
+import CompanyList from './models/CompanyList.js';
+import User from './models/User.js';
+import Worker from './models/Worker.js';
+import Job from './models/Job.js';
 
 
 dotenv.config();
@@ -97,6 +102,43 @@ app.use('/api/workers', workerRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/jobs', jobRoutes); // Add job routes
 app.use('/api/admin', adminRoutes);
+
+cron.schedule('*/5 * * * *', async () => {
+  console.log('Running daily user deletion check...');
+  const now = new Date();
+
+  const usersToDelete = await User.find({ scheduledDeletion: { $lte: now } });
+
+  for (const user of usersToDelete) {
+    try {
+      const userId = user._id;
+      const userCode = user.userCode;
+
+      // Delete workers and jobs directly under the user
+      await Worker.deleteMany({ userCode });
+      await Job.deleteMany({ userCode });
+
+      // Find all companies created by the user
+      const companies = await CompanyList.find({ user: userId });
+      const compCodes = companies.map(c => c.comp_code);
+
+      // Delete workers and jobs under each company (using their comp_code as userCode in jobs/workers)
+      await Worker.deleteMany({ userCode: { $in: compCodes } });
+      await Job.deleteMany({ userCode: { $in: compCodes } });
+
+      // Delete the companies
+      await CompanyList.deleteMany({ user: userId });
+
+      // Finally, delete the user
+      await User.findByIdAndDelete(userId);
+
+      console.log(`✅ Deleted user ${user.email} and all related companies, workers, and jobs.`);
+    } catch (err) {
+      console.error('❌ Error deleting scheduled user:', err);
+    }
+  }
+});
+
 
        
 

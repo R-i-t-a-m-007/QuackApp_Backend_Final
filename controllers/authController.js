@@ -80,6 +80,31 @@ export const sendUserRegistrationEmail = async (email, username, userCode, passw
   }
 };
 
+const sendDeletionEmail = async (email, username) => {
+  const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Account Scheduled for Deletion',
+    html: `
+      <p>Dear <strong>${username}</strong>,</p>
+      <p>This is a notice that your account is scheduled to be permanently deleted in <strong>30 days</strong>.</p>
+      <p>This includes your user profile, companies, workers, and job data.</p>
+      <p>You may continue using all features until the deletion date. If you wish to keep your account, please contact us immediately.</p>
+      <p>Best regards,<br/>The QuackApp Team</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 // Function to send emails
 const sendEmail = async (to, subject, text) => {
   const transporter = nodemailer.createTransport({
@@ -453,47 +478,25 @@ export const deleteUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Find the user
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const userCode = user.userCode;
+    // Schedule deletion after 30 days
+    const deletionDate = new Date(Date.now() + 5 * 60 * 1000); // 30 days from now
+    user.scheduledDeletion = deletionDate;
+    await user.save();
 
-    // Delete the user
-    await User.findByIdAndDelete(userId);
+    // Send email notification
+    await sendDeletionEmail(user.email, user.username);
 
-    // Delete all workers associated with the user
-    const deletedWorkersFromUser = await Worker.deleteMany({ userCode });
-
-    // Delete all jobs associated with the user
-    const deletedJobs = await Job.deleteMany({ userCode });
-
-    // Find all companies created by this user
-    const companiesToDelete = await CompanyList.find({ user: userId });
-    const compCodes = companiesToDelete.map(company => company.comp_code);
-
-    // Delete companies
-    const deletedCompanies = await CompanyList.deleteMany({ user: userId });
-
-    // Delete workers whose userCode matches deleted company codes
-    const deletedWorkersFromCompanies = await Worker.deleteMany({ userCode: { $in: compCodes } });
-
-    res.status(200).json({
-      message: 'User, associated workers, jobs, and companies deleted successfully.',
-      deletedWorkersFromUser: deletedWorkersFromUser.deletedCount,
-      deletedJobs: deletedJobs.deletedCount,
-      deletedCompanies: deletedCompanies.deletedCount,
-      deletedWorkersFromCompanies: deletedWorkersFromCompanies.deletedCount
+    return res.status(200).json({
+      message: `Account scheduled for deletion on ${deletionDate.toDateString()}`,
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Failed to delete user and associated data.' });
+    console.error('Error scheduling user deletion:', error);
+    res.status(500).json({ message: 'Failed to schedule deletion.' });
   }
 };
-
-
 
 
 export const getUserById = async (req, res) => {
