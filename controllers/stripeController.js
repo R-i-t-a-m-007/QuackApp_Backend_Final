@@ -127,25 +127,45 @@ export const cancelSubscription = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(400).json({ message: 'User  not found' });
+      return res.status(400).json({ message: 'User not found' });
     }
+
+    // Set subscription end date to 30 days from today
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
 
     // Update subscription status and log activity
     user.subscribed = false;
-    user.package = 'Expired';
-    user.subscriptionEndDate = new Date(); // Set the subscription end date to the current date
+    user.subscriptionEndDate = endDate;
     user.activities.push({
       timestamp: new Date(),
-      message: 'User  requested subscription cancellation.',
+      message: 'User requested subscription cancellation.',
     });
     await user.save();
 
     // Email content to user
     const userEmailContent = `
-      <h2>Subscription Cancellation Received</h2>
-      <p>Hi ${user.username},</p>
-      <p>We've received your request to cancel your subscription.</p>
-      <p>Your account has been updated, and your subscription is no longer active on our platform.</p>
+      <h2>30 Day Cancellation and Data Deletion Notice</h2>
+      <p>
+        Dear Quack App User,<br /><br />
+
+        We are writing to inform you that your subscription with The Quack App will be cancelled in 30 days from the date of this notice (by ${endDate.toDateString()}).<br /><br />
+
+        Please be advised that, as part of the cancellation process, all data associated with your account will be permanently deleted after this 30-day period.<br /><br />
+
+        This process is in compliance with GDPR.<br /><br />
+
+        Recommended Actions:<br />
+        • Backup or retrieve any important data.<br />
+        • Review any ongoing services associated with your account.<br /><br />
+
+        Once the 30-day period concludes, deletion of all data will be irreversible. To cancel this request, please contact us before ${endDate.toDateString()}.<br /><br />
+
+        For support, email: admin@thequackapp.com<br /><br />
+
+        Sincerely,<br />
+        The Quack App Team
+      </p>
     `;
 
     // Email content to admin
@@ -158,7 +178,6 @@ export const cancelSubscription = async (req, res) => {
       <p><strong>User Code:</strong> ${user.userCode}</p>
     `;
 
-    // Set up mail transport (Gmail example)
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -167,7 +186,6 @@ export const cancelSubscription = async (req, res) => {
       },
     });
 
-    // Send email to user
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: user.email,
@@ -175,11 +193,10 @@ export const cancelSubscription = async (req, res) => {
       html: userEmailContent,
     });
 
-    // Send email to admin
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.ADMIN_EMAIL,
-      subject: 'User  Cancellation Request - Action Needed',
+      subject: 'User Cancellation Request - Action Needed',
       html: adminEmailContent,
     });
 
@@ -190,6 +207,7 @@ export const cancelSubscription = async (req, res) => {
     res.status(500).json({ message: 'Error processing cancellation request.' });
   }
 };
+
 
 
 export const handleWebhook = async (req, res) => {

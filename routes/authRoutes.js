@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser , loginUser , getLoggedInUser , logoutUser , requestOtp, storeSelectedPackage,getSessionData,updateUserPackage, uploadUserImage, getAllUsers, updateUserDetails, deleteUser, getUserById, getTotalPrice, requestPasswordReset, resetPassword, cancelSubscription, getCustomerId, generatePresignedUrl, updateUserImage } from '../controllers/authController.js';
+import { registerUser , loginUser , getLoggedInUser , logoutUser , requestOtp, storeSelectedPackage,getSessionData,updateUserPackage, uploadUserImage, getAllUsers, updateUserDetails, deleteUser, getUserById, getTotalPrice, requestPasswordReset, resetPassword, cancelSubscription, getCustomerId, generatePresignedUrl, updateUserImage, deleteUserAdmin } from '../controllers/authController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
@@ -16,6 +16,7 @@ router.post('/:userId/upload-image', uploadUserImage); // New route for uploadin
 router.get('/users', getAllUsers); // API to get all users
 router.put('/update/:userId', updateUserDetails);
 router.delete('/users/:userId', deleteUser);
+router.delete('/usersadmin/:userId', deleteUserAdmin);
 router.get("/users/:id",getUserById);
 router.get('/total-price', getTotalPrice);
 router.post('/forgot-password', requestPasswordReset);

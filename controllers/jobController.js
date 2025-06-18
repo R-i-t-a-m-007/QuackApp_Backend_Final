@@ -287,6 +287,7 @@ export const createJob = async (req, res) => {
           to: worker.expoPushToken,
           sound: 'default',
           body: `You have been invited to a new job: ${title}`,
+          channelId: 'default',
           data: { 
             jobId: newJob._id, 
             messageContent: `You have been invited to a new job: ${title}` 
@@ -463,6 +464,7 @@ export const acceptJob = async (req, res) => {
         to: expoPushToken,
         sound: 'default',
         body: `${worker.name} has accepted the job: ${job.title}.`,
+        channelId: 'default',
         data: {
           workerName: worker.name,
           jobId: job._id,
@@ -567,6 +569,7 @@ export const declineJob = async (req, res) => {
         to: expoPushToken,
         sound: 'default',
         body: `${worker.name} has declined the job: ${job.title}.`,
+        channelId: 'default',
         data: {
           workerName: worker.name,
           jobId: job._id,
@@ -923,6 +926,7 @@ export const removeAcceptedJob = async (req, res) => {
             to: eligibleWorker.expoPushToken,
             sound: 'default',
             body: `Job "${job.title}" on ${formattedDate} (${job.shift}) is now available!`,
+            channelId: 'default',
             data: {
               jobId: job._id.toString(),
               messageContent: `Job "${job.title}" on ${formattedDate} (${job.shift}) is now available.`,

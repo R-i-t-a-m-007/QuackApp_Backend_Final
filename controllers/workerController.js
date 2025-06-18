@@ -427,6 +427,7 @@ export const addWorker = async (req, res) => {
           to: userWithCode.expoPushToken,
           sound: 'default',
           body: notificationMessage,
+          channelId: 'default',
           data: { 
             workerName: name, 
             messageContent: notificationMessage 
@@ -513,6 +514,7 @@ export const approveWorker = async (req, res) => {
         to: worker.expoPushToken,
         sound: 'default',
         body: 'Congratulations! You have been approved.',
+        channelId: 'default',
         data: { username: worker.name, messageContent: 'Congratulations! You have been approved.' },
       };
 
@@ -549,6 +551,7 @@ export const declineWorker = async (req, res) => {
         to: deletedWorker.expoPushToken,
         sound: 'default',
         body: 'We regret to inform you that your request has been declined.',
+        channelId: 'default',
         data: { username: deletedWorker.name, messageContent: 'Your request has been declined.' },
       };
 
@@ -754,6 +757,7 @@ export const updateWorkerAvailability = async (req, res) => {
         to: expoPushToken,
         sound: 'default',
         body: `${updatedWorker.name} is available on ${new Date(date).toLocaleDateString('en-GB')} for the ${shift} shift.`,
+        channelId: 'default',
         data: {
           username: updatedWorker.name,
           messageContent: `${updatedWorker.name} has marked themselves available on ${new Date(date).toLocaleDateString('en-GB')} for the ${shift} shift.`
@@ -1019,6 +1023,7 @@ export const deleteWorker = async (req, res) => {
               to: eligibleWorker.expoPushToken,
               sound: 'default',
               body: `A job "${job.title}" on ${formattedDate} (${job.shift}) is now available!`,
+              channelId: 'default',
               data: {
                 jobId: job._id.toString(),
                 messageContent: `A job "${job.title}" on ${formattedDate} (${job.shift}) is now available.`,
@@ -1164,6 +1169,7 @@ export const sendMessageToWorkers = async (req, res) => {
           to: token,
           sound: 'default',
           body: `New message from ${username}: ${message}`,
+          channelId: 'default',
           data: { username: username, messageContent: message },
         });
       }
@@ -1266,6 +1272,7 @@ export const cancelShiftForWorker = async (req, res) => {
                 to: w.expoPushToken,
                 sound: 'default',
                 body: `Job "${job.title}" on ${formattedShiftDate} (${shift}) is now available!`,
+                channelId: 'default',
                 data: {
                   jobId: job._id.toString(),
                   messageContent: `Job "${job.title}" on ${formattedShiftDate} (${shift}) is now available.`,

@@ -313,6 +313,8 @@ export const storeSelectedPackage = async (req, res) => {
     }
 
     user.package = packageName;
+    user.subscriptionEndDate = null;
+    user.subscribed = true;
 
     // Set the price based on the package
     if (packageName === 'Basic') {
@@ -495,6 +497,54 @@ export const deleteUser = async (req, res) => {
   } catch (error) {
     console.error('Error scheduling user deletion:', error);
     res.status(500).json({ message: 'Failed to schedule deletion.' });
+  }
+};
+
+export const deleteUserAdmin = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userCode = user.userCode;
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    // Delete all workers associated with the user
+    const deletedWorkersFromUser = await Worker.deleteMany({ userCode });
+
+    // Delete all jobs associated with the user
+    const deletedJobs = await Job.deleteMany({ userCode });
+
+    // Find all companies created by this user
+    const companiesToDelete = await CompanyList.find({ user: userId });
+    const compCodes = companiesToDelete.map(company => company.comp_code);
+
+    // Delete companies
+    const deletedCompanies = await CompanyList.deleteMany({ user: userId });
+
+    // Delete workers whose userCode matches deleted company codes
+    const deletedWorkersFromCompanies = await Worker.deleteMany({ userCode: { $in: compCodes } });
+
+    // 🔥 Delete jobs created by those companies
+    const deletedJobsFromCompanies = await Job.deleteMany({ userCode: { $in: compCodes } });
+
+    res.status(200).json({
+      message: 'User, associated workers, jobs, and companies deleted successfully.',
+      deletedWorkersFromUser: deletedWorkersFromUser.deletedCount,
+      deletedJobs: deletedJobs.deletedCount,
+      deletedCompanies: deletedCompanies.deletedCount,
+      deletedWorkersFromCompanies: deletedWorkersFromCompanies.deletedCount,
+      deletedJobsFromCompanies: deletedJobsFromCompanies.deletedCount,
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Failed to delete user and associated data.' });
   }
 };
 
